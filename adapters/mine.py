@@ -9,7 +9,6 @@ Pure Python · stdlib only · no external dependencies.
 from __future__ import annotations
 
 import math
-import networkx as nx
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Tuple
@@ -248,8 +247,9 @@ class Engine(Adapter):
         self._events: List[Event] = []
         self._aliases = AliasResolver()
         
-        # Akshay's Causal Graph (NetworkX)
-        self._graph = nx.MultiDiGraph()
+        
+        self._nodes: Dict[str, Dict[str, Any]] = {}   # node_id -> metadata
+        self._predecessors: Dict[str, List[Tuple[str, Dict[str, Any]]]] = defaultdict(list) # target -> [(source, edge_data)]
         self._trace_to_events: Dict[str, List[int]] = defaultdict(list)
         self._service_to_events: Dict[str, List[int]] = defaultdict(list)
 
@@ -262,7 +262,7 @@ class Engine(Adapter):
         self._fingerprints: Dict[str, IncidentFingerprint] = {}  # incident_id → fingerprint
         self._events_by_ts: List[Tuple[datetime, int]] = []  # sorted (ts, index) for binary search
         
-        # Pratham's Reinforcement & signature indices
+        
         self._by_signature: Dict[str, List[str]] = defaultdict(list)  # signature → list of incident_ids
         self._reinforcement_tally: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
             lambda: defaultdict(lambda: {"success": 0, "total": 0})
@@ -307,7 +307,7 @@ class Engine(Adapter):
             if len(prev_indices) > 1:
                 prev_idx = prev_indices[-2]
                 prev_e = self._events[prev_idx]
-                self._graph.add_edge(
+                self._add_edge(
                     prev_e.get("_id") or f"e{prev_idx}", 
                     eid, 
                     relation="trace_link", 
@@ -323,7 +323,7 @@ class Engine(Adapter):
                 if other_e.get("kind") == "deploy":
                     other_ts = _safe_parse(other_e.get("ts"))
                     if other_ts and 0 < (ts - other_ts).total_seconds() < 3600:
-                        self._graph.add_edge(
+                        self._add_edge(
                             other_e.get("_id") or f"e{other_idx}", 
                             eid, 
                             relation="deploy_impact", 
@@ -339,7 +339,7 @@ class Engine(Adapter):
                 if other_e.get("kind") == "log" and other_e.get("level", "").lower() == "error":
                     other_ts = _safe_parse(other_e.get("ts"))
                     if other_ts and 0 < (ts - other_ts).total_seconds() < 600:
-                        self._graph.add_edge(
+                        self._add_edge(
                             other_e.get("_id") or f"e{other_idx}", 
                             eid, 
                             relation="error_trigger", 
@@ -374,7 +374,7 @@ class Engine(Adapter):
             incident_id, signal_canonical, signal_ts, trigger, related, mode
         )
 
-        # Pratham's Logic: Compute dynamic topology-free signature for evaluation signal
+        
         current_sig = self._compute_signature(related, trigger)
 
         # ---- 4. Suggested remediations ----
@@ -448,7 +448,8 @@ class Engine(Adapter):
         self._remediations.clear()
         self._rem_by_canonical.clear()
         self._events_by_ts.clear()
-        self._graph.clear()
+        self._nodes.clear()
+        self._predecessors.clear()
         self._trace_to_events.clear()
         self._service_to_events.clear()
         self._by_signature.clear()
@@ -464,11 +465,11 @@ class Engine(Adapter):
             ts = _safe_parse(e.get("ts"))
 
             # Register node in causal graph with metadata attributes
-            self._graph.add_node(
-                eid, 
-                kind=kind, 
-                incident_id=e.get("incident_id", "")
-            )
+            self._nodes[eid] = {
+                "kind": kind,
+                "incident_id": e.get("incident_id", ""),
+                "idx": idx
+            }
 
             # Index by canonical service
             if canonical:
@@ -510,6 +511,10 @@ class Engine(Adapter):
         self._build_fingerprints()
 
         self._indexed = True
+
+    def _add_edge(self, source: str, target: str, relation: str, confidence: float) -> None:
+        """Internal helper to build the pure-python adjacency list."""
+        self._predecessors[target].append((source, {"relation": relation, "confidence": confidence}))
 
     def _build_fingerprints(self) -> None:
         """Build behavioural fingerprints for all known incidents."""
@@ -678,56 +683,54 @@ class Engine(Adapter):
     ) -> List[CausalEdge]:
         """
         Akshay's Logic: Performs a backwards traversal from the signal
-        to identify the most likely root cause path.
+        to identify the most likely root cause path (Pure Python BFS).
         """
-        # Find the node ID in the graph
+        # Find the node ID in our graph nodes
         target_node = None
-        for nid, d in self._graph.nodes(data=True):
+        for nid, d in self._nodes.items():
             if d.get("kind") == "incident_signal" and d.get("incident_id") == target_incident_id:
                 target_node = nid
                 break
         
-        if not target_node or target_node not in self._graph:
+        if not target_node:
             return []
 
-        # Find paths back to "root" kinds (deploy, topology)
-        # We use a simple reverse BFS to find the most confident chain
+        # Find paths back to "root" kinds (deploy)
         chain: List[CausalEdge] = []
         visited = {target_node}
+        # queue stores (current_node, current_path)
         queue = deque([(target_node, [])])
         
-        best_path = []
+        best_path: List[CausalEdge] = []
         
         while queue:
             curr, path = queue.popleft()
             
             # If we found a deploy, this is a likely root cause
-            if self._graph.nodes[curr].get("kind") == "deploy":
+            if self._nodes.get(curr, {}).get("kind") == "deploy":
                 best_path = path
                 break
             
-            # Traverse backwards (predecessors)
-            for pred in self._graph.predecessors(curr):
-                if pred not in visited:
-                    visited.add(pred)
-                    # Get the edge with highest confidence
-                    edges = self._graph.get_edge_data(pred, curr)
-                    best_edge_key = max(edges, key=lambda k: edges[k].get("confidence", 0))
-                    edge_data = edges[best_edge_key]
+            # Traverse backwards (predecessors) using our native adjacency list
+            for pred_id, edge_data in self._predecessors.get(curr, []):
+                if pred_id not in visited:
+                    visited.add(pred_id)
                     
-                    new_path = [{
-                        "cause_event_id": pred,
+                    new_edge: CausalEdge = {
+                        "cause_event_id": pred_id,
                         "effect_event_id": curr,
                         "evidence": edge_data.get("relation", "causal_link"),
                         "confidence": edge_data.get("confidence", 0.5)
-                    }] + path
+                    }
                     
-                    queue.append((pred, new_path))
+                    # Prepend to path to keep causal order
+                    new_path = [new_edge] + path
+                    queue.append((pred_id, new_path))
                     
-            if len(visited) > 100: # Safety cap for latency
+            if len(visited) > 150: # Safety cap for latency
                 break
 
-        return best_path if best_path else []
+        return best_path
 
     def _find_similar_incidents(
         self,
