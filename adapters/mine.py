@@ -262,10 +262,14 @@ class Engine(Adapter):
         self._fingerprints: Dict[str, IncidentFingerprint] = {}  # incident_id → fingerprint
         self._events_by_ts: List[Tuple[datetime, int]] = []  # sorted (ts, index) for binary search
         
+        # State trackers for O(1) edge synthesis
+        self._latest_deploy: Dict[str, Tuple[datetime, int, str]] = {} # can_svc -> (ts, idx, eid)
+        self._latest_error_log: Dict[str, Tuple[datetime, int, str]] = {} # can_svc -> (ts, idx, eid)
+        self._latest_metric: Dict[str, Tuple[datetime, int, str]] = {} # can_svc -> (ts, idx, eid)
         
         self._by_signature: Dict[str, List[str]] = defaultdict(list)  # signature → list of incident_ids
-        self._reinforcement_tally: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
-            lambda: defaultdict(lambda: {"success": 0, "total": 0})
+        self._reinforcement_tally: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(
+            lambda: defaultdict(lambda: {"success": 0.0, "total": 0.0})
         )
 
     # ------------------------------------------------------------------ #
@@ -297,8 +301,18 @@ class Engine(Adapter):
         self._indexed = False
 
     def _synthesize_edges(self, idx: int, e: Event, eid: str, ts: Optional[datetime], can_svc: str) -> None:
-        """Akshay's Logic: Creates causal edges during ingestion."""
+        """Akshay's Logic: Creates causal edges during ingestion in O(1) time."""
         if not ts: return
+        
+        kind = e.get("kind")
+
+        # Update O(1) state trackers
+        if kind == "deploy" and can_svc:
+            self._latest_deploy[can_svc] = (ts, idx, eid)
+        elif kind == "log" and e.get("level", "").lower() == "error" and can_svc:
+            self._latest_error_log[can_svc] = (ts, idx, eid)
+        elif kind == "metric" and can_svc:
+            self._latest_metric[can_svc] = (ts, idx, eid)
 
         # 1. Intra-trace causality (Connect to previous event in same trace)
         tid = e.get("trace_id")
@@ -315,37 +329,46 @@ class Engine(Adapter):
                 )
 
         # 2. Deployment Impact (Connect Deploy -> Metric/Log in same service)
-        if e.get("kind") in ["metric", "log", "incident_signal"] and can_svc:
-            # Look for recent deploys in the last 1 hour for this service
-            for other_idx in reversed(self._service_to_events[can_svc]):
-                if other_idx == idx: continue
-                other_e = self._events[other_idx]
-                if other_e.get("kind") == "deploy":
-                    other_ts = _safe_parse(other_e.get("ts"))
-                    if other_ts and 0 < (ts - other_ts).total_seconds() < 3600:
-                        self._add_edge(
-                            other_e.get("_id") or f"e{other_idx}", 
-                            eid, 
-                            relation="deploy_impact", 
-                            confidence=0.8
-                        )
-                        break # Only link to the most recent deploy
+        if kind in ["metric", "log", "incident_signal"] and can_svc:
+            if can_svc in self._latest_deploy:
+                d_ts, d_idx, d_eid = self._latest_deploy[can_svc]
+                if 0 < (ts - d_ts).total_seconds() < 3600:
+                    self._add_edge(d_eid, eid, relation="deploy_impact", confidence=0.8)
 
         # 3. Error Trigger (Log Error -> Incident Signal)
-        if e.get("kind") == "incident_signal" and can_svc:
-             for other_idx in reversed(self._service_to_events[can_svc]):
-                if other_idx == idx: continue
-                other_e = self._events[other_idx]
-                if other_e.get("kind") == "log" and other_e.get("level", "").lower() == "error":
-                    other_ts = _safe_parse(other_e.get("ts"))
-                    if other_ts and 0 < (ts - other_ts).total_seconds() < 600:
-                        self._add_edge(
-                            other_e.get("_id") or f"e{other_idx}", 
-                            eid, 
-                            relation="error_trigger", 
-                            confidence=0.9
-                        )
-                        break
+        if kind == "incident_signal" and can_svc:
+            if can_svc in self._latest_error_log:
+                err_ts, err_idx, err_eid = self._latest_error_log[can_svc]
+                if 0 < (ts - err_ts).total_seconds() < 1800:
+                    self._add_edge(err_eid, eid, relation="error_trigger", confidence=0.9)
+
+        # 4. Cross-Service Trace Impact (deploy -> metric -> log)
+        if kind == "trace" and "spans" in e:
+            tid = e.get("trace_id")
+            if tid:
+                trace_events = self._trace_to_events.get(tid, [])
+                for span in e.get("spans", []):
+                    span_svc = span.get("svc", "")
+                    if not span_svc: continue
+                    span_can_svc = self._aliases.resolve(span_svc)
+                    
+                    # If the span service had a recent metric spike, it caused the trace errors
+                    if span_can_svc in self._latest_metric:
+                        m_ts, m_idx, m_eid = self._latest_metric[span_can_svc]
+                        if 0 < (ts - m_ts).total_seconds() < 1800:
+                            for te_idx in trace_events:
+                                if te_idx == idx: continue
+                                te = self._events[te_idx]
+                                self._add_edge(m_eid, te.get("_id") or f"e{te_idx}", relation="trace_metric_impact", confidence=0.7)
+                    
+                    # Fallback: link deploy directly to trace events if no metric
+                    elif span_can_svc in self._latest_deploy:
+                        d_ts, d_idx, d_eid = self._latest_deploy[span_can_svc]
+                        if 0 < (ts - d_ts).total_seconds() < 1800:
+                            for te_idx in trace_events:
+                                if te_idx == idx: continue
+                                te = self._events[te_idx]
+                                self._add_edge(d_eid, te.get("_id") or f"e{te_idx}", relation="cross_service_trace", confidence=0.75)
 
     def reconstruct_context(
         self,
@@ -369,17 +392,53 @@ class Engine(Adapter):
         # ---- 2. Causal chain (Akshay's Graph Traversal) ----
         causal_chain = self._build_causal_chain(incident_id, signal_svc)
 
+        # Merge Causal Chain events into related events to capture cross-service context
+        chain_trace_ids = set()
+        for edge in causal_chain:
+            for eid in (edge["cause_event_id"], edge["effect_event_id"]):
+                node = self._nodes.get(eid)
+                if node:
+                    e = self._events[node["idx"]]
+                    if "trace_id" in e:
+                        chain_trace_ids.add(e["trace_id"])
+                    
+                    clean_e: Event = {k: v for k, v in e.items() if not k.startswith("_")} # type: ignore
+                    if not any(r.get("ts") == clean_e.get("ts") and r.get("service") == clean_e.get("service") for r in related):
+                        related.append(clean_e)
+                        
+        # Append trace events explicitly if they link the causal chain
+        for tid in chain_trace_ids:
+            for te_idx in self._trace_to_events.get(tid, []):
+                te = self._events[te_idx]
+                if te.get("kind") == "trace":
+                    clean_te: Event = {k: v for k, v in te.items() if not k.startswith("_")} # type: ignore
+                    if not any(r.get("ts") == clean_te.get("ts") and r.get("kind") == "trace" for r in related):
+                        related.append(clean_te)
+
+        # Sort related events chronologically
+        related.sort(key=lambda x: _safe_parse(x.get("ts")) or datetime.min.replace(tzinfo=timezone.utc))
+
         # ---- 3. Similar past incidents ----
         similar = self._find_similar_incidents(
             incident_id, signal_canonical, signal_ts, trigger, related, mode
         )
 
-        
         current_sig = self._compute_signature(related, trigger)
+
+        # Determine true target service (from root cause if available)
+        true_target = signal_canonical
+        if causal_chain:
+            root_id = causal_chain[0]["cause_event_id"]
+            root_node = self._nodes.get(root_id)
+            if root_node:
+                root_event = self._events[root_node["idx"]]
+                root_svc = root_event.get("service", "")
+                if root_svc:
+                    true_target = self._aliases.resolve(root_svc)
 
         # ---- 4. Suggested remediations ----
         remediations = self._suggest_remediations(
-            incident_id, signal_canonical, similar, current_sig
+            incident_id, true_target, similar, current_sig
         )
 
         # ---- 5. Explain & Causal Narration (Pratham's Lead Integration) ----
@@ -454,6 +513,10 @@ class Engine(Adapter):
         self._service_to_events.clear()
         self._by_signature.clear()
         self._reinforcement_tally.clear()
+        
+        self._latest_deploy.clear()
+        self._latest_error_log.clear()
+        self._latest_metric.clear()
 
         for idx, e in enumerate(self._events):
             kind = e.get("kind")
@@ -520,9 +583,17 @@ class Engine(Adapter):
         """Build behavioural fingerprints for all known incidents."""
         self._fingerprints.clear()
 
+        # Sort incidents chronologically to apply time decay properly
+        sorted_incidents = []
         for iid, inc_idx in self._incidents.items():
+            inc_ts = _safe_parse(self._events[inc_idx].get("ts"))
+            sorted_incidents.append((inc_ts, iid, inc_idx))
+            
+        sorted_incidents.sort(key=lambda x: x[0] if x[0] else datetime.min.replace(tzinfo=timezone.utc))
+
+        for inc_ts, iid, inc_idx in sorted_incidents:
             inc_event = self._events[inc_idx]
-            inc_ts = _safe_parse(inc_event.get("ts"))
+            # (Note: inc_ts is already extracted above)
             inc_svc = inc_event.get("service", "")
             inc_canonical = self._aliases.resolve(inc_svc)
             trigger = inc_event.get("trigger", "")
@@ -579,9 +650,11 @@ class Engine(Adapter):
                 outcome = rem_event.get("outcome", "")
                 
                 stats = self._reinforcement_tally[sig][rem_action]
-                stats["total"] += 1
+                
+                # Apply Exponential Time Decay (older remediations lose 10% weight)
+                stats["total"] = (stats["total"] * 0.9) + 1.0
                 if outcome.lower() in ["resolved", "success"]:
-                    stats["success"] += 1
+                    stats["success"] = (stats["success"] * 0.9) + 1.0
 
     def _compute_signature(self, related: List[Event], trigger: str) -> str:
         """Compute topology-free signature for a runtime event set."""
@@ -621,26 +694,35 @@ class Engine(Adapter):
         window_before_min: int = 30,
         window_after_min: int = 5,
     ) -> List[Event]:
-        """Get events for a canonical service within a time window."""
+        """Get events for a canonical service within a time window (O(log N) optimized for L3)."""
+        import bisect
         if not center_ts:
             return []
 
+        # Find all valid canonical names currently active for this query
         all_names = self._aliases.all_names_for(canonical_service)
-        results: List[Tuple[datetime, Event]] = []
+        resolved_names = {self._aliases.resolve(n) for n in all_names}
 
         t_start = center_ts - timedelta(minutes=window_before_min)
         t_end = center_ts + timedelta(minutes=window_after_min)
 
-        # Check all aliases for this canonical service
-        for name in all_names:
-            resolved = self._aliases.resolve(name)
-            for idx in self._by_canonical_service.get(resolved, []):
-                e = self._events[idx]
-                e_ts = _safe_parse(e.get("ts"))
-                if e_ts and t_start <= e_ts <= t_end:
-                    results.append((e_ts, e))
+        # O(log N) Binary search over globally sorted timestamps
+        # Dummy events just to use standard bisect on the tuple (datetime, int)
+        start_idx = bisect.bisect_left(self._events_by_ts, (t_start, -1))
+        end_idx = bisect.bisect_right(self._events_by_ts, (t_end, 999999999))
 
-        # Deduplicate (same canonical may map multiple names to same events)
+        results: List[Tuple[datetime, Event]] = []
+        
+        # Iterate only over the extremely small 30-min global time-slice
+        for i in range(start_idx, end_idx):
+            e_ts, global_idx = self._events_by_ts[i]
+            e = self._events[global_idx]
+            
+            svc = e.get("service") or e.get("target") or ""
+            if svc and self._aliases.resolve(svc) in resolved_names:
+                results.append((e_ts, e))
+
+        # Deduplicate
         seen_ids: Set[int] = set()
         unique: List[Tuple[datetime, Event]] = []
         for ts, e in results:
@@ -841,12 +923,12 @@ class Engine(Adapter):
                     total = stats["total"]
                     
                     # Statistical Confidence Calculation using Laplace smoothing
-                    conf = (success + 1) / (total + 2)
+                    conf = (success + 1.0) / (total + 2.0)
                     
                     suggestions.append({
                         "action": action,
                         "target": signal_canonical, # Map to current service
-                        "historical_outcome": f"resolved (Success Tally: {success}/{total})",
+                        "historical_outcome": f"resolved (Success Tally: {success:.1f}/{total:.1f})",
                         "confidence": round(conf, 3),
                     })
 
