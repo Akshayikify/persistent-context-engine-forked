@@ -1,0 +1,78 @@
+﻿Loaded 2000 events into engine. Total stored: 2000
+Loaded 3 incident signals. Total stored: 2003
+
+--- Acceptance Tests ---
+Incident nodes count: 45
+Graph size: 2005 nodes, 9638 edges
+
+==============================
+Evaluating incident: INC-101
+==============================
+Fast Mode (hops=2) - Related count: 100
+  e595 | score: 0.2185 | auth-svc | 2026-05-15T11.29.13Z
+  e946 | score: 0.2185 | email-svc | 2026-05-15T10.01.29Z
+  e592 | score: 0.1210 | auth-svc | 2026-05-15T11.29.58Z
+  e704 | score: 0.1210 | auth-svc | 2026-05-15T11.01.58Z
+  e944 | score: 0.1210 | email-svc | 2026-05-15T10.01.59Z
+
+Deep Mode (hops=3) - Related count: 100
+  e595 | score: 0.2185 | auth-svc | 2026-05-15T11.29.13Z
+  e946 | score: 0.2185 | email-svc | 2026-05-15T10.01.29Z
+  e592 | score: 0.1234 | auth-svc | 2026-05-15T11.29.58Z
+  e952 | score: 0.1225 | email-svc | 2026-05-15T09.59.59Z
+  e704 | score: 0.1215 | auth-svc | 2026-05-15T11.01.58Z
+
+Explanation (Deep):
+  Found 100 related events (mode=deep); 7 causal edges; 4 similar past incidents.
+Similar Past Incidents (Top 3):
+  INC-202 | sim: 1.000 | 1 overlapping services
+  INC-303 | sim: 1.000 | 1 overlapping services
+  INC-202 | sim: 0.258 | cosine=0.258; shared_services=1
+
+==============================
+Evaluating incident: INC-202
+==============================
+Fast Mode (hops=2) - Related count: 100
+  e652 | score: 0.2185 | analytics-svc | 2026-05-15T11.14.58Z
+  e642 | score: 0.1210 | analytics-svc | 2026-05-15T11.17.28Z
+  e681 | score: 0.1210 | analytics-svc | 2026-05-15T11.07.43Z
+  e641 | score: 0.1106 | analytics-svc | 2026-05-15T11.17.43Z
+  e690 | score: 0.1106 | analytics-svc | 2026-05-15T11.05.28Z
+
+Deep Mode (hops=3) - Related count: 100
+  e652 | score: 0.2185 | analytics-svc | 2026-05-15T11.14.58Z
+  e642 | score: 0.1234 | analytics-svc | 2026-05-15T11.17.28Z
+  e681 | score: 0.1220 | analytics-svc | 2026-05-15T11.07.43Z
+  e641 | score: 0.1154 | analytics-svc | 2026-05-15T11.17.43Z
+  e690 | score: 0.1116 | analytics-svc | 2026-05-15T11.05.28Z
+
+Explanation (Deep):
+  Found 100 related events (mode=deep); 2 causal edges; 4 similar past incidents.
+Similar Past Incidents (Top 3):
+  INC-101 | sim: 2.000 | 2 overlapping services
+  INC-303 | sim: 1.000 | 1 overlapping services
+  INC-101 | sim: 0.258 | cosine=0.258; shared_services=2
+
+==============================
+Evaluating incident: INC-303
+==============================
+Fast Mode (hops=2) - Related count: 100
+  e603 | score: 0.2185 | notifications-svc | 2026-05-15T11.27.13Z
+  e590 | score: 0.1210 | notifications-svc | 2026-05-15T11.30.28Z
+  e604 | score: 0.1210 | notifications-svc | 2026-05-15T11.26.58Z
+  e579 | score: 0.1106 | notifications-svc | 2026-05-15T11.33.13Z
+  e608 | score: 0.1106 | notifications-svc | 2026-05-15T11.25.58Z
+
+Deep Mode (hops=3) - Related count: 100
+  e603 | score: 0.2185 | notifications-svc | 2026-05-15T11.27.13Z
+  e590 | score: 0.1234 | notifications-svc | 2026-05-15T11.30.28Z
+  e604 | score: 0.1215 | notifications-svc | 2026-05-15T11.26.58Z
+  e579 | score: 0.1213 | notifications-svc | 2026-05-15T11.33.13Z
+  e608 | score: 0.1126 | notifications-svc | 2026-05-15T11.25.58Z
+
+Explanation (Deep):
+  Found 100 related events (mode=deep); 4 causal edges; 4 similar past incidents.
+Similar Past Incidents (Top 3):
+  INC-101 | sim: 2.000 | 2 overlapping services
+  INC-202 | sim: 1.000 | 1 overlapping services
+  INC-101 | sim: 0.258 | cosine=0.258; shared_services=2

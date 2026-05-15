@@ -1,0 +1,3 @@
+{"trigger":"alert:checkout-api/error-rate\u003e5%","kind":"incident_signal","incident_id":"INC-101","trace_id":"t42","ts":"2026-05-15T10.58.00Z"}
+{"trigger":"alert:payments-svc/latency_p99\u003e1000","kind":"incident_signal","incident_id":"INC-202","trace_id":"t99","ts":"2026-05-15T11.58.00Z"}
+{"trigger":"alert:billing-svc/error-rate\u003e3%","kind":"incident_signal","incident_id":"INC-303","trace_id":"t123","ts":"2026-05-15T12.58.00Z"}
