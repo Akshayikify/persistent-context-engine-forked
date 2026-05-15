@@ -210,6 +210,25 @@ class IncidentFingerprint:
 
         return score
 
+    def get_signature(self) -> str:
+        """Generate topology-free signature for O(1) family bucketing."""
+        import re
+        # 1. Clean trigger (removes service tags like svc-00, svc-01-r5, etc.)
+        # Example: alert:svc-01-r2/latency_p99_ms>3000 -> alert:/latency_p99_ms>3000
+        clean_trigger = re.sub(r'svc-\d+(?:-r\d+)?', '', self.trigger).strip()
+
+        # 2. Build temporal behavioral sequence sequence
+        sequence = []
+        if self.has_deploy:
+            sequence.append("deploy")
+        if self.has_latency_spike:
+            sequence.append("spike")
+        if self.has_error_log:
+            sequence.append("error")
+        seq_str = "_".join(sequence)
+
+        return f"trig:{clean_trigger}|seq:{seq_str}"
+
 
 # ---------------------------------------------------------------------------
 # Main Engine
@@ -242,6 +261,12 @@ class Engine(Adapter):
         self._rem_by_canonical: Dict[str, List[int]] = defaultdict(list)  # canonical svc → remediation indices
         self._fingerprints: Dict[str, IncidentFingerprint] = {}  # incident_id → fingerprint
         self._events_by_ts: List[Tuple[datetime, int]] = []  # sorted (ts, index) for binary search
+        
+        # Pratham's Reinforcement & signature indices
+        self._by_signature: Dict[str, List[str]] = defaultdict(list)  # signature → list of incident_ids
+        self._reinforcement_tally: Dict[str, Dict[str, Dict[str, int]]] = defaultdict(
+            lambda: defaultdict(lambda: {"success": 0, "total": 0})
+        )
 
     # ------------------------------------------------------------------ #
     # Adapter interface
@@ -349,22 +374,36 @@ class Engine(Adapter):
             incident_id, signal_canonical, signal_ts, trigger, related, mode
         )
 
+        # Pratham's Logic: Compute dynamic topology-free signature for evaluation signal
+        current_sig = self._compute_signature(related, trigger)
+
         # ---- 4. Suggested remediations ----
         remediations = self._suggest_remediations(
-            incident_id, signal_canonical, similar
+            incident_id, signal_canonical, similar, current_sig
         )
 
-        # ---- 5. Explain ----
+        # ---- 5. Explain & Causal Narration (Pratham's Lead Integration) ----
         n_aliases = len(self._aliases.all_names_for(signal_canonical))
         explain = (
             f"Service '{signal_svc}'"
             + (f" (canonical: '{signal_canonical}', {n_aliases} known aliases)"
                if signal_svc != signal_canonical else "")
-            + f" — found {len(related)} related events in context window, "
-            + f"{len(similar)} similar past incidents, "
-            + f"{len(remediations)} remediation suggestions. "
-            + f"Mode: {mode}."
+            + f" — analyzed {len(related)} windowed events."
         )
+
+        # Weave in Causal Graph traversal narrative
+        if causal_chain:
+            root = causal_chain[0]
+            explain += f" Causal Analysis linked the incident to node '{root.get('cause_event_id')}' via direct {root.get('evidence')} ({round(root.get('confidence', 0)*100)}% conf)."
+        else:
+            explain += " Graph BFS completed but found no direct deployed dependencies."
+
+        # Weave in Reinforcement Learning statistical backing
+        if remediations:
+            best_rem = remediations[0]
+            explain += f" Action '{best_rem['action']}' recommended based on Global Reinforcement stats ({round(best_rem.get('confidence', 0)*100)}% confidence)."
+        else:
+            explain += " No statistical remediation history available for this signature."
 
         # ---- 6. Confidence ----
         conf = 0.3
@@ -372,7 +411,9 @@ class Engine(Adapter):
             best_sim = max(m.get("similarity", 0) for m in similar)
             conf = min(0.95, 0.4 + best_sim * 0.5)
         if remediations:
-            conf = min(0.95, conf + 0.1)
+            # Dynamically factor in statistical remediation confidence
+            stat_conf = remediations[0].get("confidence", 0)
+            conf = max(conf, min(0.95, stat_conf))
 
         return {
             "related_events": related,
@@ -392,6 +433,8 @@ class Engine(Adapter):
         self._rem_by_canonical.clear()
         self._fingerprints.clear()
         self._events_by_ts.clear()
+        self._by_signature.clear()
+        self._reinforcement_tally.clear()
         self._indexed = False
 
     # ------------------------------------------------------------------ #
@@ -405,15 +448,37 @@ class Engine(Adapter):
         self._remediations.clear()
         self._rem_by_canonical.clear()
         self._events_by_ts.clear()
+        self._graph.clear()
+        self._trace_to_events.clear()
+        self._service_to_events.clear()
+        self._by_signature.clear()
+        self._reinforcement_tally.clear()
 
         for idx, e in enumerate(self._events):
             kind = e.get("kind")
             svc = e.get("service") or e.get("target") or ""
             canonical = self._aliases.resolve(svc) if svc else ""
 
+            # Unique identifier for graph nodes
+            eid = e.get("_id") or f"e{idx}"
+            ts = _safe_parse(e.get("ts"))
+
+            # Register node in causal graph with metadata attributes
+            self._graph.add_node(
+                eid, 
+                kind=kind, 
+                incident_id=e.get("incident_id", "")
+            )
+
             # Index by canonical service
             if canonical:
                 self._by_canonical_service[canonical].append(idx)
+                self._service_to_events[canonical].append(idx)
+
+            # Track trace events
+            tid = e.get("trace_id")
+            if tid:
+                self._trace_to_events[tid].append(idx)
 
             # Index incidents
             if kind == "incident_signal":
@@ -432,9 +497,11 @@ class Engine(Adapter):
                     self._rem_by_canonical[can_target].append(idx)
 
             # Timestamp index
-            ts = _safe_parse(e.get("ts"))
             if ts:
                 self._events_by_ts.append((ts, idx))
+
+            # Trigger Akshay's edge synthesis
+            self._synthesize_edges(idx, e, eid, ts, canonical)
 
         # Sort by timestamp for efficient windowed lookups
         self._events_by_ts.sort(key=lambda x: x[0])
@@ -496,6 +563,47 @@ class Engine(Adapter):
                 has_error_log=has_error_log,
             )
             self._fingerprints[iid] = fp
+
+            # Pratham's Logic: Group incidents by topology-free signature
+            sig = fp.get_signature()
+            self._by_signature[sig].append(iid)
+
+            # Pratham's Logic: Increment global reinforcement tally if a remediation occurred
+            if iid in self._remediations and rem_action:
+                rem_event = self._events[self._remediations[iid]]
+                outcome = rem_event.get("outcome", "")
+                
+                stats = self._reinforcement_tally[sig][rem_action]
+                stats["total"] += 1
+                if outcome.lower() in ["resolved", "success"]:
+                    stats["success"] += 1
+
+    def _compute_signature(self, related: List[Event], trigger: str) -> str:
+        """Compute topology-free signature for a runtime event set."""
+        import re
+        clean_trigger = re.sub(r'svc-\d+(?:-r\d+)?', '', trigger).strip()
+        
+        has_deploy = False
+        has_latency = False
+        has_error = False
+
+        for e in related:
+            k = e.get("kind", "")
+            if k == "deploy":
+                has_deploy = True
+            if k == "metric" and "latency" in e.get("name", "").lower():
+                val = e.get("value", 0)
+                if isinstance(val, (int, float)) and val > 2000:
+                    has_latency = True
+            if k == "log" and e.get("level", "").lower() == "error":
+                has_error = True
+
+        sequence = []
+        if has_deploy: sequence.append("deploy")
+        if has_latency: sequence.append("spike")
+        if has_error: sequence.append("error")
+        
+        return f"trig:{clean_trigger}|seq:{'_'.join(sequence)}"
 
     # ------------------------------------------------------------------ #
     # Context reconstruction helpers
@@ -662,6 +770,7 @@ class Engine(Adapter):
             has_latency_spike=has_latency_spike,
             has_error_log=has_error_log,
         )
+        current_sig = current_fp.get_signature()
 
         # Score all other incidents
         scored: List[Tuple[float, str, str]] = []
@@ -670,7 +779,6 @@ class Engine(Adapter):
                 continue
 
             # Only consider incidents that occurred BEFORE the current one
-            # (we want past incidents, not future ones)
             if signal_ts:
                 inc_idx = self._incidents.get(iid)
                 if inc_idx is not None:
@@ -679,8 +787,17 @@ class Engine(Adapter):
                         continue
 
             sim = current_fp.similarity(fp)
-            if sim > 0.05:
+            sig_match = (fp.get_signature() == current_sig)
+            
+            # Pratham's Logic: Boost similarity if topology-independent sequence matches
+            # Using simple additive boost without clamping to preserve fine-grained ordering
+            if sig_match:
+                sim += 0.25
+
+            # Pratham's Logic: Keep safe threshold (0.05) to prevent filtering of True Positives
+            if sim >= 0.05:
                 rationale = f"canonical_svc_match={fp.canonical_service == signal_canonical}, "
+                rationale += f"sig_match={sig_match}, "
                 rationale += f"pattern_sim={sim:.3f}"
                 if fp.remediation_action:
                     rationale += f", past_remediation={fp.remediation_action}"
@@ -705,12 +822,35 @@ class Engine(Adapter):
         current_incident_id: str,
         signal_canonical: str,
         similar_incidents: List[IncidentMatch],
+        current_sig: str = "",
     ) -> List[Remediation]:
-        """Suggest remediations based on similar past incidents."""
+        """Suggest remediations utilizing incremental reinforcement stats."""
         suggestions: List[Remediation] = []
         seen_actions: Set[str] = set()
 
-        # 1. Direct remediation for this incident (if it exists in training data)
+        # Pratham's Logic: 1. Global Reinforcement Learning Tally
+        # Matches same sequence/behavior even across different services (Global intelligence)
+        if current_sig and current_sig in self._reinforcement_tally:
+            for action, stats in self._reinforcement_tally[current_sig].items():
+                if action and action not in seen_actions:
+                    seen_actions.add(action)
+                    success = stats["success"]
+                    total = stats["total"]
+                    
+                    # Statistical Confidence Calculation using Laplace smoothing
+                    conf = (success + 1) / (total + 2)
+                    
+                    suggestions.append({
+                        "action": action,
+                        "target": signal_canonical, # Map to current service
+                        "historical_outcome": f"resolved (Success Tally: {success}/{total})",
+                        "confidence": round(conf, 3),
+                    })
+
+        # Sort global suggestions by statistical confidence descending
+        suggestions.sort(key=lambda r: -r.get("confidence", 0))
+
+        # 2. Direct remediation for this incident (historical fallback)
         if current_incident_id in self._remediations:
             rem = self._events[self._remediations[current_incident_id]]
             action = rem.get("action", "")
@@ -723,7 +863,7 @@ class Engine(Adapter):
                     "confidence": 0.9,
                 })
 
-        # 2. Remediations from similar past incidents
+        # 3. Remediations from similar past incidents
         for match in similar_incidents:
             past_iid = match.get("incident_id", "")
             if past_iid in self._remediations:
@@ -739,7 +879,7 @@ class Engine(Adapter):
                         "confidence": round(min(0.85, sim_score), 3),
                     })
 
-        # 3. Fallback: remediations for the same canonical service
+        # 4. Fallback: remediations for the same canonical service
         if not suggestions:
             for rem_idx in self._rem_by_canonical.get(signal_canonical, []):
                 rem = self._events[rem_idx]

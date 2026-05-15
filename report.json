@@ -1,0 +1,535 @@
+{
+  "mode": "fast",
+  "seeds": [
+    42,
+    101,
+    202,
+    303,
+    404
+  ],
+  "per_seed": [
+    {
+      "seed": 42,
+      "config": {
+        "seed": 42,
+        "n_services": 12,
+        "days": 7,
+        "deploys": 30,
+        "topology_mutations": 8,
+        "incidents_train": 24,
+        "incidents_eval": 10,
+        "incident_families": 5,
+        "background_density": 200,
+        "start_ts": "2026-05-01T00:00:00Z"
+      },
+      "ingest_ms": 16.0,
+      "n_train": 11879,
+      "n_eval": 5119,
+      "n_signals": 10,
+      "mode": "fast",
+      "per_incident": [
+        {
+          "incident_id": "INC-55095-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-56666-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-93245-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-21409-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-36501-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 15.999999988707714
+        },
+        {
+          "incident_id": "INC-38085-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-59649-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-63302-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.2,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-70823-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-84896-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        }
+      ],
+      "summary": {
+        "recall@5": 1.0,
+        "precision@5_mean": 0.54,
+        "remediation_acc": 1.0,
+        "latency_p95_ms": 16.0,
+        "latency_mean_ms": 7.8,
+        "n": 10
+      }
+    },
+    {
+      "seed": 101,
+      "config": {
+        "seed": 101,
+        "n_services": 12,
+        "days": 7,
+        "deploys": 30,
+        "topology_mutations": 8,
+        "incidents_train": 24,
+        "incidents_eval": 10,
+        "incident_families": 5,
+        "background_density": 200,
+        "start_ts": "2026-05-01T00:00:00Z"
+      },
+      "ingest_ms": 16.0,
+      "n_train": 11938,
+      "n_eval": 5060,
+      "n_signals": 10,
+      "mode": "fast",
+      "per_incident": [
+        {
+          "incident_id": "INC-31825-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 15.999999988707714
+        },
+        {
+          "incident_id": "INC-54999-0",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-86734-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-10683-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-25062-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-43201-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-54567-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-60079-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-72515-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-94398-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        }
+      ],
+      "summary": {
+        "recall@5": 1.0,
+        "precision@5_mean": 0.68,
+        "remediation_acc": 1.0,
+        "latency_p95_ms": 16.0,
+        "latency_mean_ms": 10.9,
+        "n": 10
+      }
+    },
+    {
+      "seed": 202,
+      "config": {
+        "seed": 202,
+        "n_services": 12,
+        "days": 7,
+        "deploys": 30,
+        "topology_mutations": 8,
+        "incidents_train": 24,
+        "incidents_eval": 10,
+        "incident_families": 5,
+        "background_density": 200,
+        "start_ts": "2026-05-01T00:00:00Z"
+      },
+      "ingest_ms": 16.0,
+      "n_train": 11915,
+      "n_eval": 5083,
+      "n_signals": 10,
+      "mode": "fast",
+      "per_incident": [
+        {
+          "incident_id": "INC-26355-0",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-35372-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-45482-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-63741-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-72996-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.2,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-28435-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-34057-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-59625-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.4,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-85586-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-88601-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        }
+      ],
+      "summary": {
+        "recall@5": 1.0,
+        "precision@5_mean": 0.78,
+        "remediation_acc": 1.0,
+        "latency_p95_ms": 16.0,
+        "latency_mean_ms": 9.3,
+        "n": 10
+      }
+    },
+    {
+      "seed": 303,
+      "config": {
+        "seed": 303,
+        "n_services": 12,
+        "days": 7,
+        "deploys": 30,
+        "topology_mutations": 8,
+        "incidents_train": 24,
+        "incidents_eval": 10,
+        "incident_families": 5,
+        "background_density": 200,
+        "start_ts": "2026-05-01T00:00:00Z"
+      },
+      "ingest_ms": 16.0,
+      "n_train": 11934,
+      "n_eval": 5064,
+      "n_signals": 10,
+      "mode": "fast",
+      "per_incident": [
+        {
+          "incident_id": "INC-21832-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-37571-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-76618-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-2528-0",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-27111-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-40473-3",
+          "correct_family_in_top_k": false,
+          "precision_at_k": 0.0,
+          "remediation_matches": true,
+          "latency_ms": 15.999999988707714
+        },
+        {
+          "incident_id": "INC-48701-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-65706-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-85299-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-94476-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.6,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        }
+      ],
+      "summary": {
+        "recall@5": 0.9,
+        "precision@5_mean": 0.74,
+        "remediation_acc": 1.0,
+        "latency_p95_ms": 16.0,
+        "latency_mean_ms": 9.4,
+        "n": 10
+      }
+    },
+    {
+      "seed": 404,
+      "config": {
+        "seed": 404,
+        "n_services": 12,
+        "days": 7,
+        "deploys": 30,
+        "topology_mutations": 8,
+        "incidents_train": 24,
+        "incidents_eval": 10,
+        "incident_families": 5,
+        "background_density": 200,
+        "start_ts": "2026-05-01T00:00:00Z"
+      },
+      "ingest_ms": 0.0,
+      "n_train": 11901,
+      "n_eval": 5097,
+      "n_signals": 10,
+      "mode": "fast",
+      "per_incident": [
+        {
+          "incident_id": "INC-42547-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-45527-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-47577-2",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-81527-3",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 15.999999988707714
+        },
+        {
+          "incident_id": "INC-88646-0",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-5296-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 0.8,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        },
+        {
+          "incident_id": "INC-21197-4",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-42668-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 16.00000000325963
+        },
+        {
+          "incident_id": "INC-52203-1",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 0.0
+        },
+        {
+          "incident_id": "INC-54421-0",
+          "correct_family_in_top_k": true,
+          "precision_at_k": 1.0,
+          "remediation_matches": true,
+          "latency_ms": 14.999999999417923
+        }
+      ],
+      "summary": {
+        "recall@5": 1.0,
+        "precision@5_mean": 0.96,
+        "remediation_acc": 1.0,
+        "latency_p95_ms": 16.0,
+        "latency_mean_ms": 10.9,
+        "n": 10
+      }
+    }
+  ],
+  "aggregated": {
+    "recall@5": 0.98,
+    "precision@5_mean": 0.74,
+    "remediation_acc": 1.0,
+    "latency_p95_ms": 16.0,
+    "latency_mean_ms": 9.66,
+    "n_seeds": 5,
+    "n_signals_total": 50,
+    "n": 50
+  },
+  "score": {
+    "axes": {
+      "recall@5": 0.98,
+      "precision@5_mean": 0.74,
+      "remediation_acc": 1.0,
+      "latency_p95_ms": 1.0,
+      "manual_context": null,
+      "manual_explain": null
+    },
+    "weighted_score": 0.755,
+    "max_automated": 0.8,
+    "note": "manual_* axes are panel-graded and excluded from the automated score"
+  }
+}
