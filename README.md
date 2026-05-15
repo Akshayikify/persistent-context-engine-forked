@@ -11,15 +11,15 @@ Tested against the official P-02 Context Harness:
 
 ## Core Architecture
 
-### 1. Identity Resolver (Jaya Sai)
+### 1. Identity Resolver 
 Implements a recursive forward-alias map that tracks service renames over time. It ensures that an incident on `svc-01-r7` correctly matches historical data from its ancestor `svc-01`.
 
-### 2. Native Causal Graph (Akshay H)
+### 2. Native Causal Graph 
 A high-speed, memory-efficient adjacency list implementation of a causal network.
 - **Backwards BFS Traversal**: Identifies root-cause paths from incident signals back to deployments.
 - **Edge Synthesis**: Automatically links trace spans and temporal "Deploy-to-Anomaly" proximity.
 
-### 3. Behavioral Fingerprinting & Learning (Pratham)
+### 3. Behavioral Fingerprinting & Learning 
 - **Topology-Independent Hashing**: Groups incidents by their behavioral "signature" (patterns of logs, metrics, and triggers) rather than raw names.
 - **Reinforcement Tally**: Tracks the historical success/failure ratios of remediation actions for every incident fingerprint.
 
