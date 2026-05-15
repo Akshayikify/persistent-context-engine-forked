@@ -2,7 +2,7 @@
 
 This engine is a high-performance, **Pure Python (stdlib-only)** solution for the ANVIL P-02 problem statement. It identifies recurring incident patterns in distributed systems while remaining robust against **Topology Drift** (service renames and dependency shifts).
 
-## 🏆 Final Benchmark Results
+##  Final Benchmark Results
 *Tested against the official P-02 Context Harness (L2 Evaluation)*
 
 | Metric | Score | Target |
@@ -14,7 +14,7 @@ This engine is a high-performance, **Pure Python (stdlib-only)** solution for th
 
 ---
 
-## 🏗️ Technical Architecture & Defense
+##  Technical Architecture & Defense
 
 ### 1. Temporal Identity Resolver (Topology Drift)
 The PCE handles **Cascading Rename Chains** (e.g., `svc-01` → `svc-01-r4` → `svc-01-r7`) using a recursive forward-alias mapping logic.
@@ -29,16 +29,10 @@ Instead of simple keyword matching, we built a native **Directed Causal Graph** 
 - **Topology-Independent Signatures**: Incidents are grouped by their "Behavioral DNA" (N-gram trigger analysis and Kind Distributions) rather than strings.
 - **Reinforcement Tally**: The engine tracks the historical success/failure ratios of remediation actions. It **learns** which fixes work for which fingerprints over time.
 
----
-
-## 👥 Team Assignments & Ownership
-- **Jaya Sai**: Data & Identity Architect (Alias Resolution & Normalize Logic)
-- **Akshay H**: Graph Engineer (Causal Edge Synthesis & BFS Traversal)
-- **Pratham**: Lead (Behavioral Fingerprinting & Reinforcement Learning)
 
 ---
 
-## 🚀 Quickstart
+##  Quickstart
 
 ### Reproducibility
 The project is containerized for easy evaluation:
